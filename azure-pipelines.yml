@@ -32,12 +32,7 @@ stages:
       displayName: Build an image
       inputs:
         command: build
-        dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
+        dockerfile: '**/Dockerfile'   # Adjust if needed
+        buildContext: '$(Build.SourcesDirectory)'
         tags: |
-          $(tag)
-
-    - task: DockerCompose@1
-      inputs:
-        containerregistrytype: 'Container Registry'
-        dockerComposeFile: '**/docker-compose.yml'
-        action: 'Run a Docker Compose command'
+          myapp:latest
