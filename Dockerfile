@@ -2,7 +2,7 @@
 FROM tomcat:9-jdk17
 
 # Copy the WAR file from the target directory into Tomcat's webapps folder
-COPY target/*.war /usr/local/tomcat/webapps/
+# COPY target/*.war /usr/local/tomcat/webapps/
 
 COPY target /app/target
 
