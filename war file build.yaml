@@ -1,0 +1,6 @@
+- task: Maven@3
+  inputs:
+    mavenPomFile: 'pom.xml'
+    goals: 'package'
+    options: '-DskipTests'
+  displayName: 'Build the WAR file'
