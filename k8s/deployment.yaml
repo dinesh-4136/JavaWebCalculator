@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: webapp-0.1-container
-        image: dinesh4136/webapp-0.1:latest  # 🔁 Replace this
+        image: <your-registry>/<your-image-name>:<your-image-tag>  # 🔁 Replace this
         ports:
         - containerPort: 8080
         securityContext:
