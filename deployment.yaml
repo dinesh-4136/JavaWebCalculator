@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-0.1-deployment
+  labels:
+    app: webapp-0.1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: webapp-0.1
+  template:
+    metadata:
+      labels:
+        app: webapp-0.1
+    spec:
+      containers:
+      - name: webapp-0.1-container
+        image: dinesh4136/webapp-0.1:latest  # 🔁 Replace this
+        ports:
+        - containerPort: 8080
+        securityContext:
+          runAsUser: 1000  # optional: matches 'jenkins' user
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
