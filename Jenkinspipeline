@@ -1,24 +1,107 @@
 pipeline {
     agent any
+    tools {
+        maven 'maven'
+        jdk 'jdk-17'
+    }
+
+    environment {
+        DOCKER_USERNAME = 'dinesh4136'                          // ✅ Your Docker Hub username
+        IMAGE_NAME = 'webapp-0.1'
+        IMAGE_TAG = "${params.version}"
+        FULL_IMAGE_NAME = "${DOCKER_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG}"
+    }
+
+    parameters {
+        string(name: 'version', defaultValue: 'latest', description: 'Docker image tag version')
+    }
 
     stages {
-        stage('Git-checkout ') {
+        stage('Clean Workspace') {
             steps {
-                checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/prudhvisurya996/JavaWebCalculator.git']])
+                sh '''
+                    echo "Cleaning up Docker and workspace..."
+                    docker system prune -af || true
+                    rm -rf /tmp/trivy* || true
+                    df -h
+                '''
             }
         }
-        stage('Package') {
+
+        stage('Git Checkout') {
             steps {
-                sh 'mvn package'
+                checkout scmGit(
+                    branches: [[name: '*/main']],
+                    extensions: [],
+                    userRemoteConfigs: [[credentialsId: 'my-github', url: 'https://github.com/dinesh-4136/JavaWebCalculator.git']]
+                )
             }
         }
-        stage('Build and Run Docker Container') {
+
+        stage('Sonar Scan') {
             steps {
-                script {
-                    sh 'docker build -t  myimg:v1 .'
-                    sh 'docker run --name mywebcalc -d -p 9090:8080  myimg:v1'
+                withSonarQubeEnv('Sonar') {
+                    sh 'mvn sonar:sonar'
                 }
             }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+
+        stage('Docker Build & Push') {
+            steps {
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', 'docker-hub') {
+                        def app = docker.build("${FULL_IMAGE_NAME}")
+                        app.push()
+                    }
+                }
+            }
+        }
+
+        stage('Scan with Trivy') {
+            steps {
+                sh '''
+                    trivy image ${FULL_IMAGE_NAME}
+                '''
+            }
+        }
+
+        stage('Deploy to EKS') {
+    steps {
+        withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
+            credentialsId: 'aws-eks-creds'
+        ]]) {
+            sh '''
+                aws eks update-kubeconfig --name your-cluster-name --region your-region
+
+                echo "Deploying image: ${FULL_IMAGE_NAME} to EKS..."
+                
+                sed "s|<your-registry>|${DOCKER_USERNAME}|g; \
+                     s|<your-image-name>|${IMAGE_NAME}|g; \
+                     s|<your-image-tag>|${IMAGE_TAG}|g" \
+                     k8s/deployment.yaml | kubectl apply -f -
+
+                kubectl apply -f k8s/service.yaml
+            '''
+        }
+    }
+}
+
+    }
+
+    post {
+        always {
+            echo 'Slack Notifications.'
+            slackSend(
+                channel: '#jenkins-pipeline',
+                message: "*${currentBuild.currentResult}* - Job <${env.BUILD_URL}|#${env.JOB_NAME}>"
+            )
         }
     }
 }
