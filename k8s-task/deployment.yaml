@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: javawebcalculator-deploy
+  labels:
+    app: javawebcalculator
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: javawebcalculator
+  template:
+    metadata:
+      labels:
+        app: javawebcalculator
+    spec:
+      containers:
+        - name: javawebcalculator
+          image: dinesh4136/javawebcalcutaor:latest
+          ports:
+            - containerPort: 80
