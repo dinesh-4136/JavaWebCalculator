@@ -1,22 +1,31 @@
-# Stage 1: Build the WAR using Maven
-FROM maven:3.9.6-eclipse-temurin-17 AS builder
-WORKDIR /app
+name: Build and Push Docker Image
 
-# Copy source code and build with Maven
-COPY . .
-RUN mvn clean package -DskipTests
+on:
+  push:
+    branches:
+      - main
+  pull_request:
 
-# Stage 2: Use official Tomcat image
-FROM tomcat:9-jdk17
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-# Copy the WAR file from the builder stage to Tomcat webapps directory
-COPY --from=builder /app/target/*.war /usr/local/tomcat/webapps/
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-# Apply permissions to the WAR file(s)
-RUN chmod 755 /usr/local/tomcat/webapps/*.war
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-# Expose Tomcat's default port
-EXPOSE 8080
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-# Start Tomcat
-CMD ["catalina.sh", "run"]
+      - name: Build and Push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: your-dockerhub-username/your-image-name:latest
