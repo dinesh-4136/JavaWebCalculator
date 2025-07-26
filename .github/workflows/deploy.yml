@@ -50,16 +50,23 @@ jobs:
           -Dsonar.host.url=http://13.234.114.111:9000 \
           -Dsonar.login=$SONAR_TOKEN
 
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
     - name: Terraform Init & Apply (ECR)
+      working-directory: ./ecr-repo
       run: |
-        cd ecr-repo
         terraform init
         terraform apply -auto-approve
 
     - name: Get ECR Repo URL
       id: ecr
+      working-directory: ./ecr-repo
       run: |
-        cd ecr-repo
         echo "REPO_URL=$(terraform output -raw repository_url)" >> $GITHUB_OUTPUT
       
     - name: login to Amazon ECR
