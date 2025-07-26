@@ -51,14 +51,14 @@ jobs:
           -Dsonar.login=$SONAR_TOKEN
 
     - name: Terraform Init & Apply (ECR)
-      working-directory: ./ecr-repo
+      working-directory: ./ecr-repo/
       run: |
         terraform init
         terraform apply -auto-approve
 
     - name: Get ECR Repo URL
       id: ecr
-      working-directory: ./ecr-repo
+      working-directory: ./ecr-repo/
       run: |
         echo "REPO_URL=$(terraform output -raw repository_url)" >> $GITHUB_OUTPUT
       
