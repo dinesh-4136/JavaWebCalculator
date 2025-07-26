@@ -50,31 +50,30 @@ jobs:
           -Dsonar.host.url=http://13.234.114.111:9000 \
           -Dsonar.login=$SONAR_TOKEN
 
-    #- name: Configure AWS Credentials
-    #  uses: aws-actions/configure-aws-credentials@v4
-    #  with:
-    #    aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-    #    aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-    #    aws-region: us-east-1
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
 
-    #- name: Terraform Init & Apply (ECR)
-    #  working-directory: ./ecr-repo
-    #  run: |
-    #    terraform init
-    #    terraform apply -auto-approve
-
-    #- name: Get ECR Repo URL
-    #  id: ecr
-    #  working-directory: ./ecr-repo
-    #  run: |
-    #    echo "REPO_URL=$(terraform output -raw repository_url)" >> $GITHUB_OUTPUT
-      
+  
     - name: login to Amazon ECR
+      id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Build Docker Image
+    - name: Build, Tag and Push Image to ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: java-app
+        IMAGE_TAG: latest
       run: |
-        docker build -t ${{ steps.ecr.outputs.REPO_URL }}:latest .
+        docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+    - name: Output Image URL
+      run: echo "Pushed to ${{ steps.login-ecr.outputs.registry }}/my-ecr-repo:latest"
 
     - name: Scan Docker image with Trivy
       uses: aquasecurity/trivy-action@master
@@ -96,12 +95,6 @@ jobs:
       with:
         name: trivy-report
         path: trivy-report.json
-
-    - name: Push Docker Image t ECR
-      run: |
-        docker push ${{ steps.ecr.outputs.REPO_URL }}:latest
-
-
 
     # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
     # - name: Update dependency graph
