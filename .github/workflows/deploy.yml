@@ -46,15 +46,16 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag java-webapp:$(date +%s)
+    - name: Docker Build and Push with Timestamp
+      run: |
+        TIMESTAMP=$(date +%s)
+        IMAGE=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/java-webapp:$TIMESTAMP
+        
+        echo "Building Docker image: $IMAGE"
+        docker build . --file Dockerfile --tag $IMAGE
 
-    - name: Push Docker image to registry
-      run: docker push java-webapp:$(date +%s)
-      env:
-        DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-        DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-
+        echo "Pushing Docker image: $IMAGE"
+        docker push $IMAGE
 
     # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
     # - name: Update dependency graph
