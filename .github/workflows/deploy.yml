@@ -68,18 +68,27 @@ jobs:
     - name: Scan Docker image with Trivy (Table Report)
       run: |
         IMAGE=${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
-        trivy image --exit-code 1 --severity CRITICAL,HIGH --format table $IMAGE
+        trivy image \
+          --exit-code 1 \
+          --severity CRITICAL,HIGH \
+          --format table \
+          $IMAGE
 
     - name: Trivy scan to JSON report
       run: |
         IMAGE=${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
-        trivy image --severity CRITICAL,HIGH --format json -o trivy-report.json $IMAGE
+        trivy image \
+          --severity CRITICAL,HIGH \
+          --format json \
+          -o trivy-report.json \
+          $IMAGE
 
     - name: Upload Trivy JSON Report
       uses: actions/upload-artifact@v4
       with:
         name: trivy-report
         path: trivy-report.json
+
 
     - name: Push Docker Image to Amazon ECR
       run: |
