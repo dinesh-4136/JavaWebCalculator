@@ -67,34 +67,24 @@ jobs:
 
     - name: Install Trivy
       run: |
-        sudo rpm --import https://aquasecurity.github.io/trivy-repo/RPM-GPG-KEY-trivy
-        sudo curl -sfL https://aquasecurity.github.io/trivy-repo/rpm/releases.asc | sudo tee /etc/yum.repos.d/trivy.repo
-        sudo yum -y install trivy
-    
-    - name: Scan Docker image with Trivy (Table Report)
-      run: |
-        IMAGE=${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
-        trivy image \
-          --exit-code 1 \
-          --severity CRITICAL,HIGH \
-          --format table \
-          $IMAGE
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
+        sudo mv trivy /usr/local/bin/
 
-    - name: Trivy scan to JSON report
+    - name: Trivy Image Scan (Table Output)
       run: |
         IMAGE=${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
-        trivy image \
-          --severity CRITICAL,HIGH \
-          --format json \
-          -o trivy-report.json \
-          $IMAGE
+        trivy image --exit-code 1 --severity CRITICAL,HIGH --format table $IMAGE
+
+    - name: Trivy JSON Report
+      run: |
+        IMAGE=${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
+        trivy image --severity CRITICAL,HIGH --format json -o trivy-report.json $IMAGE
 
     - name: Upload Trivy JSON Report
       uses: actions/upload-artifact@v4
       with:
         name: trivy-report
         path: trivy-report.json
-
 
     - name: Push Docker Image to Amazon ECR
       run: |
