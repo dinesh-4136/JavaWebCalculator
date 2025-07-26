@@ -76,6 +76,27 @@ jobs:
       run: |
         docker build -t ${{ steps.ecr.outputs.REPO_URL }}:latest .
 
+    - name: Scan Docker image with Trivy
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/java-app:${{ env.IMAGE_TAG }}
+        format: table
+        exit-code: 1
+        severity: CRITICAL,HIGH
+
+    - name: Trivy scan to JSON report
+      run: |
+        trivy image --severity CRITICAL,HIGH \
+          --format json \
+          -o trivy-report.json \
+          docker.io/${{ secrets.DOCKERHUB_USERNAME }}/java-app:${{ env.IMAGE_TAG }}
+
+    - name: Upload Trivy JSON Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: trivy-report
+        path: trivy-report.json
+
     - name: Push Docker Image t ECR
       run: |
         docker push ${{ steps.ecr.outputs.REPO_URL }}:latest
