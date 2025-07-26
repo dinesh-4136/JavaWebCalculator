@@ -6,7 +6,7 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-name: Java CI with Maven
+name: Java CI with Maven, Docker Image Build
 
 on:
   push:
@@ -38,6 +38,10 @@ jobs:
       with:
         name: java-app
         path: target/*.jar
+
+    - name: Build the Docker image
+      run: docker build . --file Dockerfile --tag java-webapp:$(date +%s)
+
 
     # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
     # - name: Update dependency graph
