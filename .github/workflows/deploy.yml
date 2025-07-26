@@ -39,6 +39,15 @@ jobs:
         name: java-app
         path: target/*.jar
 
+    - name: Run SonarQube Analysis
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      run: |
+        mvn verify sonar:sonar \
+          -Dsonar.projectKey=java-app \
+          -Dsonar.host.url=http://13.234.114.111:9000 \
+          -Dsonar.login=$SONAR_TOKEN
+
     - name: Docekr Login
       uses: docker/login-action@v2
       with:
@@ -49,7 +58,7 @@ jobs:
     - name: Docker Build and Push with Timestamp
       run: |
         TIMESTAMP=$(date +%s)
-        IMAGE=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/java-webapp:$TIMESTAMP
+        IMAGE=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/java-app:$TIMESTAMP
         
         echo "Building Docker image: $IMAGE"
         docker build . --file Dockerfile --tag $IMAGE
