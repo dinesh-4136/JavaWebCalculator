@@ -65,6 +65,12 @@ jobs:
         docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
         docker tag $ECR_REPOSITORY:$IMAGE_TAG ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
 
+    - name: Install Trivy
+      run: |
+        sudo rpm --import https://aquasecurity.github.io/trivy-repo/RPM-GPG-KEY-trivy
+        sudo curl -sfL https://aquasecurity.github.io/trivy-repo/rpm/releases.asc | sudo tee /etc/yum.repos.d/trivy.repo
+        sudo yum -y install trivy
+    
     - name: Scan Docker image with Trivy (Table Report)
       run: |
         IMAGE=${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
