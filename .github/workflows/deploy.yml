@@ -39,8 +39,21 @@ jobs:
         name: java-app
         path: target/*.jar
 
+    - name: Docekr Login
+      uses: docker/login-action@v2
+      with:
+        registry: docker.io
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag java-webapp:$(date +%s)
+
+    - name: Push Docker image to registry
+      run: docker push java-webapp:$(date +%s)
+      env:
+        DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
 
 
     # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
