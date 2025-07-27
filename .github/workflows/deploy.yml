@@ -99,11 +99,15 @@ jobs:
       with:
         version: 'latest'
 
+    - name: Configure kubectl for EKS
+      run: |
+        aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
+
     - name: Verify Cluaster Connection
       run: kubectl get nodes
 
     - name: Apply Kubernetes Deployment
       run: |
-        sed -i "s|image: .*|image: ${ECR_REPOSITORY}:${IMAGE_TAG}|g" k8s/deployment.yaml
+        sed -i "s|image: .*|image: $ECR_REPOSITORY:$IMAGE_TAG|g" k8s/deployment.yaml
         
         kubectl apply -f k8s/
