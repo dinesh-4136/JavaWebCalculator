@@ -1,5 +1,5 @@
 provider "aws" {
-    region = var.aws_region
+  region = var.aws_region
 }
 
 resource "aws_ecr_repository" "java_web_calculator" {
@@ -13,6 +13,6 @@ resource "aws_ecr_repository" "java_web_calculator" {
 
   tags = {
     Environment = var.environment
-    Project = var.project_name
+    Project     = var.project_name
   }
 }
