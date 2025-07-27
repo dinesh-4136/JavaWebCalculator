@@ -108,6 +108,6 @@ jobs:
 
     - name: Apply Kubernetes Deployment
       run: |
-        sed -i "s|image: .*|image: $ECR_REPOSITORY:$IMAGE_TAG|g" k8s/deployment.yaml
+#      sed -i "s|image: .*|image: $ECR_REPOSITORY:$IMAGE_TAG|g" k8s/deployment.yaml
         
         kubectl apply -f k8s/
