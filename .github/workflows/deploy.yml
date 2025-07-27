@@ -1,21 +1,22 @@
-name: Java CI with Maven, Sonar scan, Docker Image Build, Push and Trivy Scan
+name: Java CI with Maven, Sonar scan, Docker Image Build, Push to ECR, Trivy Scan and Deploy to EKS
 
 on:
   push:
-    branches: [ "github-actions" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "github-actions" ]
+    branches: [ "main" ]
 
 jobs:
-  build:
+  deploy:
+    name: Deploy to Amazon EKS
     runs-on: [self-hosted, label-aws]
 
     env:
+      EKS_CLUSTER_NAME: my-cluster
       ECR_REPOSITORY: java-app
       IMAGE_TAG: latest
+      DEPLOYMENT_MANIFEST: k8s/deployment.yaml
       AWS_REGION: ${{ secrets.AWS_REGION }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
     steps:
     - name: Checkout code
@@ -52,8 +53,8 @@ jobs:
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
     - name: Login to Amazon ECR
@@ -92,3 +93,17 @@ jobs:
 
     - name: Output Image URL
       run: echo "Pushed to ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG"
+
+    - name: Setup Kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+
+    - name: Verify Cluaster Connection
+      run: kubectl get nodes
+
+    - name: Apply Kubernetes Deployment
+      run: |
+        sed -i "s|java-app|${{ env.ECR_REPOSITORY }}|g" $DEPLOYMENT_MANIFEST
+        sed -i "s|latest|${{ env.IMAGE_TAG }}|g" $DEPLOYMENT_MANIFEST
+        kubectl apply -f $DEPLOYMENT_MANIFEST
