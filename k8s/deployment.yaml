@@ -14,6 +14,6 @@ spec:
     spec:
       containers:
         - name: java-app
-          image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/java-app:latest
+          image: 637423504784.dkr.ecr.us-east-1.amazonaws.com/java-app:latest
           ports:
             - containerPort: 8080
