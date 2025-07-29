@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: java-app
+  namespace: java-webapp
 spec:
   replicas: 2
   selector:
@@ -16,4 +17,13 @@ spec:
         - name: java-app
           image: 637423504784.dkr.ecr.us-east-1.amazonaws.com/java-app:latest
           ports:
-            - containerPort: 8080
+            - containerPort: 8081
+          resources:
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+          readinessProbe: null
+          livenessProbe: null
