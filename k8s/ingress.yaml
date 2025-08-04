@@ -2,13 +2,13 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: java-app-ingress
-  namespace: java-webapp
+  namespace: java-webapp  # You can leave this, but ensure controller supports cross-namespace
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   ingressClassName: nginx
   rules:
-  - host: myapp.webapp.com
+  - host: add2d85891e0747068c965b45e94d103-12c18388362b3178.elb.us-east-1.amazonaws.com
     http:
       paths:
       - path: /java
