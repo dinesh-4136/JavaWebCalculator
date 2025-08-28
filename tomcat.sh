@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define the source and destination paths
-SOURCE="/var/lib/jenkins/workspace/pipeline1/target/webapp-0.1.war"
+SOURCE="/JavaWebCalculator/target/webapp-0.1.war"
 DESTINATION="/opt/tomcat9/webapps/"
 
 # Copy the WAR file to the Tomcat webapps directory
