@@ -1,17 +1,18 @@
 apiVersion: networking.k8s.io/v1
-kind: ingress
+kind: Ingress
 metadata:
-  name: java-app-ingress
+  name: java-webapp-ingress
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    kubernetes.io/ingress.class: alb
 spec:
   rules:
-    - hosts: "yourfeatureworld.com"
+    - host: java-webapp.example.com
       http:
         paths:
-        - path: /java
-          pathType: Prefix
-          backend:
-            service:
-              name: java-app-service
-              port: 8081
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: java-webapp-service
+                port:
+                  number: 80
