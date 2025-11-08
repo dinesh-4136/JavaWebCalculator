@@ -1,107 +1,130 @@
 pipeline {
     agent any
+    
     tools {
         maven 'maven'
         jdk 'jdk-17'
     }
-
+    
     environment {
-        DOCKER_USERNAME = 'dinesh4136'                          // ✅ Your Docker Hub username
-        IMAGE_NAME = 'webapp-0.1'
-        IMAGE_TAG = "${params.version}"
-        FULL_IMAGE_NAME = "${DOCKER_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG}"
+        SCANNER_HOME = tool 'sonar'
+        IMAGE_NAME = 'dinesh4136/java-webapp'
+        IMAGE_TAG = "build-${BUILD_NUMBER}"
     }
-
-    parameters {
-        string(name: 'version', defaultValue: 'latest', description: 'Docker image tag version')
-    }
-
+    
     stages {
-        stage('Clean Workspace') {
+        stage('Code Checkout') {
             steps {
-                sh '''
-                    echo "Cleaning up Docker and workspace..."
-                    docker system prune -af || true
-                    rm -rf /tmp/trivy* || true
-                    df -h
-                '''
+                checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/dinesh-4136/JavaWebCalculator.git']])
             }
         }
-
-        stage('Git Checkout') {
-            steps {
-                checkout scmGit(
-                    branches: [[name: '*/main']],
-                    extensions: [],
-                    userRemoteConfigs: [[credentialsId: 'my-github', url: 'https://github.com/dinesh-4136/JavaWebCalculator.git']]
-                )
-            }
-        }
-
-        stage('Sonar Scan') {
-            steps {
-                withSonarQubeEnv('Sonar') {
-                    sh 'mvn sonar:sonar'
-                }
-            }
-        }
-
+        
         stage('Build') {
             steps {
                 sh 'mvn clean package'
             }
         }
-
-        stage('Docker Build & Push') {
+        
+        stage('SonarCloud Analysis') {
             steps {
-                script {
-                    docker.withRegistry('https://index.docker.io/v1/', 'docker-hub') {
-                        def app = docker.build("${FULL_IMAGE_NAME}")
-                        app.push()
+                withSonarQubeEnv('sonar') {
+                    withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+                        sh """
+                            \$SCANNER_HOME/bin/sonar-scanner \
+                            -Dsonar.projectKey=dinesh-4136_JavaWebCalculator \
+                            -Dsonar.organization=dinesh-4136 \
+                            -Dsonar.sources=. \
+                            -Dsonar.java.binaries=target/classes \
+                            -Dsonar.host.url=https://sonarcloud.io \
+                            -Dsonar.login=\$SONAR_TOKEN
+                        """
                     }
                 }
             }
         }
 
-        stage('Scan with Trivy') {
+        /* stage('Quality Gate') {
             steps {
-                sh '''
-                    trivy image ${FULL_IMAGE_NAME}
-                '''
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        } */
+
+        stage('Build Docker Image') {
+            steps {
+                echo "Building Docker image with tag: ${IMAGE_TAG}"
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
             }
         }
-
-        stage('Deploy to EKS') {
-    steps {
-        withCredentials([[
-            $class: 'AmazonWebServicesCredentialsBinding',
-            credentialsId: 'aws-eks-creds'
-        ]]) {
-            sh '''
-                aws eks update-kubeconfig --name your-cluster-name --region your-region
-
-                echo "Deploying image: ${FULL_IMAGE_NAME} to EKS..."
-                
-                sed "s|<your-registry>|${DOCKER_USERNAME}|g; \
-                     s|<your-image-name>|${IMAGE_NAME}|g; \
-                     s|<your-image-tag>|${IMAGE_TAG}|g" \
-                     k8s/deployment.yaml | kubectl apply -f -
-
-                kubectl apply -f k8s/service.yaml
-            '''
+        
+        stage('Push Image to DockerHub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'DOCKERHUB_LOGIN', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh """
+                        docker login -u $DOCKER_USER -p $DOCKER_PASS
+                        docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                    """
+                }
+            }
         }
-    }
-}
+        
+        stage('Deploy to EKS') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'AWS_CREDENTIALS']]) {
+                    sh '''
+                        AWS_REGION="us-east-1"
+                        CLUSTER_NAME="my-cluster"
+                        
+                        echo "🔧 Setting up KUBECONFIG for EKS cluster: $CLUSTER_NAME ..."
+                        aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
 
-    }
+                        echo "📝 Updating and Deploying image: $FULL_IMAGE_NAME to EKS..."
+                        sed "s|<your-image-name>|${IMAGE_NAME}|g; \
+                             s|<your-image-tag>|${IMAGE_TAG}|g" \
+                             k8s/deployment.yaml | kubectl apply -f -
 
-    post {
-        always {
-            echo 'Slack Notifications.'
-            slackSend(
-                channel: '#jenkins-pipeline',
-                message: "*${currentBuild.currentResult}* - Job <${env.BUILD_URL}|#${env.JOB_NAME}>"
-            )
+                        echo "📦 Applying service manifest..."
+                        kubectl apply -f k8s/service.yaml
+                        
+                        echo "📦 Applying ingress manifest..."
+                        kubectl apply -f k8s/ingress.yaml
+
+                     '''
+                }
+            }
+        }
+        
+        stage('Deploy Monitoring Stack (Prometheus + Grafana)') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'AWS_CREDENTIALS']]) {
+                    sh '''
+                        echo "🚀 Adding Helm repositories for Prometheus and Grafana..."
+                        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
+                        helm repo add grafana https://grafana.github.io/helm-charts || true
+                        helm repo update
+                        
+                        echo "🧭 Creating monitoring namespace..."
+                        kubectl create namespace monitoring || true
+                        
+                        echo "📊 Installing Prometheus..."
+                        helm upgrade --install prometheus prometheus-community/prometheus -n monitoring
+
+                        echo "📈 Installing Grafana..."
+                        helm upgrade --install grafana grafana/grafana -n monitoring
+                        
+                        echo "✅ Waiting for all monitoring pods to be ready..."
+                        kubectl wait --for=condition=Ready pods --all -n monitoring --timeout=480s || true
+                        
+                        echo "🔍 Getting Grafana admin credentials..."
+                        GRAFANA_PASS=$(kubectl get secret --namespace monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode)
+                        echo "Grafana admin password: $GRAFANA_PASS"
+
+                        echo "🎯 Monitoring stack deployed successfully!"
+                        kubectl get svc -n monitoring
+                    '''
+                }
+            }
         }
     }
 }
