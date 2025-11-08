@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
         - name: java-webapp
-          image: dinesh4136/java-webapp:build-8
+          image: <your-image-name>:<your-image-tag>
           ports:
             - containerPort: 8080
