@@ -19,7 +19,7 @@ jobs:
       ACR_LOGIN_SERVER: dineshacr.azurecr.io      # full ACR login server
       AKS_CLUSTER_NAME: myAKSCluster
       AKS_RESOURCE_GROUP: dinesh-rg
-      IMAGE_NAME: java-app
+      IMAGE_NAME: java-webapp
       IMAGE_TAG: ${{ github.run_number }}
 
     steps:
@@ -42,7 +42,7 @@ jobs:
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: java-app
+          name: java-webapp
           path: target/*.war
 
       - name: Analyze with SonarCloud
