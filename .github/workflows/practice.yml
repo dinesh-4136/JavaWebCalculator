@@ -104,6 +104,9 @@ jobs:
       - name: Verify Cluaster Connection
         run: kubectl get nodes
 
-      - name: Apply Kubernetes Deployment
+      - name: Update Kubernetes Deployment Image
         run: |
-          kubectl apply -f k8s/
+          sed -i "s|<your-image-name>:<your-image-tag>|${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}|" k8s/deployment.yaml
+
+      - name: Apply Kubernetes Deployment
+        run: kubectl apply -f k8s/
