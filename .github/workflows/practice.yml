@@ -14,6 +14,12 @@ jobs:
   Analysis:
     runs-on: ubuntu-latest
 
+    env:
+      EKS_CLUSTER_NAME: my-cluster
+      ECR_REPOSITORY: java-app
+      IMAGE_TAG: '$(Build.BuildId)'
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,3 +53,57 @@ jobs:
             -Dsonar.organization=dinesh-4136
             -Dsonar.java.binaries=target/classes
           projectBaseDir: .
+
+      - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build and Tag Docker Image
+      run: |
+        docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
+    - name: Install Trivy
+      run: |
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
+        sudo mv ./bin/trivy /usr/local/bin/
+    - name: Trivy Image Scan
+      run: |
+        IMAGE=${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
+        trivy image --scanners vuln --vuln-type os --skip-db-update --exit-code 0 --format table $IMAGE
+    - name: Trivy JSON Report
+      run: |
+        IMAGE=${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
+        trivy image --scanners vuln --vuln-type os --skip-db-update --exit-code 0 --format json --severity CRITICAL,HIGH -o trivy-report.json $IMAGE
+    - name: Upload Trivy JSON Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: trivy-report
+        path: trivy-report.json
+
+    - name: Push Docker Image to Amazon ECR
+      run: |
+        docker push ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
+    - name: Output Image URL
+      run: echo "Pushed to ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG"
+
+    - name: Setup Kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+
+    - name: Configure kubectl for EKS
+      run: |
+        aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
+    - name: Verify Cluaster Connection
+      run: kubectl get nodes
+
+    - name: Apply Kubernetes Deployment
+      run: |
+        kubectl apply -f k8s/
