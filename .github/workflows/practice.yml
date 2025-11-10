@@ -17,7 +17,7 @@ jobs:
     env:
       EKS_CLUSTER_NAME: my-cluster
       ECR_REPOSITORY: java-app
-      IMAGE_TAG: '$(Build.BuildId)'
+      IMAGE_TAG: ${{ github.run_number }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
 
     steps:
