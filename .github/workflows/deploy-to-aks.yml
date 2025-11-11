@@ -1,4 +1,4 @@
-name: Checkout, Build, Sonar, and Deploy to AKS
+name: Build, Scan, and Deploy to AKS via ACR
 
 on:
   push:
@@ -14,16 +14,16 @@ jobs:
   build-deploy:
     runs-on: ubuntu-latest
 
+    # Generic environment variables (safe to expose)
     env:
-      ACR_NAME: dineshACR                         # e.g., myacrname (without .azurecr.io)
-      ACR_LOGIN_SERVER: dineshacr.azurecr.io      # full ACR login server
-      AKS_CLUSTER_NAME: myAKSCluster
-      AKS_RESOURCE_GROUP: dinesh-rg
-      IMAGE_NAME: java-webapp
+      IMAGE_NAME: java-app
       IMAGE_TAG: ${{ github.run_number }}
 
     steps:
-      - name: Checkout
+      # -------------------------------
+      # Code Checkout & Build
+      # -------------------------------
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
@@ -34,17 +34,20 @@ jobs:
           cache: maven
 
       - name: Build with Maven
-        run: mvn -B package --file pom.xml
+        run: mvn -B clean package --file pom.xml
 
-      - name: Run tests with Maven
+      - name: Run Unit Tests
         run: mvn test
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: java-webapp
+          name: java-app
           path: target/*.war
 
+      # -------------------------------
+      # SonarCloud Code Analysis
+      # -------------------------------
       - name: Analyze with SonarCloud
         uses: SonarSource/sonarcloud-github-action@v3
         env:
@@ -56,35 +59,37 @@ jobs:
             -Dsonar.java.binaries=target/classes
 
       # -------------------------------
-      # Azure Login and ACR Authentication
+      # Azure Login and ACR Operations
       # -------------------------------
       - name: Azure Login
         uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}  # JSON secret from `az ad sp create-for-rbac`
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Login to ACR
-        run: |
-          az acr login --name $ACR_NAME
+        run: az acr login --name ${{ secrets.ACR_NAME }}
 
       - name: Build and Tag Docker Image
         run: |
           docker build -t $IMAGE_NAME:$IMAGE_TAG .
-          docker tag $IMAGE_NAME:$IMAGE_TAG $ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG
+          docker tag $IMAGE_NAME:$IMAGE_TAG ${{ secrets.ACR_LOGIN_SERVER }}/$IMAGE_NAME:$IMAGE_TAG
 
+      # -------------------------------
+      # Trivy Security Scanning
+      # -------------------------------
       - name: Install Trivy
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
           sudo mv ./bin/trivy /usr/local/bin/
 
-      - name: Trivy Image Scan
+      - name: Trivy Image Scan (Table)
         run: |
-          IMAGE=$ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG
+          IMAGE=${{ secrets.ACR_LOGIN_SERVER }}/$IMAGE_NAME:$IMAGE_TAG
           trivy image --scanners vuln --pkg-types os --exit-code 0 --format table $IMAGE
 
       - name: Trivy JSON Report
         run: |
-          IMAGE=$ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG
+          IMAGE=${{ secrets.ACR_LOGIN_SERVER }}/$IMAGE_NAME:$IMAGE_TAG
           trivy image --scanners vuln --pkg-types os --exit-code 0 --format json --severity CRITICAL,HIGH -o trivy-report.json $IMAGE
 
       - name: Upload Trivy JSON Report
@@ -94,10 +99,10 @@ jobs:
           path: trivy-report.json
 
       - name: Push Docker Image to ACR
-        run: docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG
+        run: docker push ${{ secrets.ACR_LOGIN_SERVER }}/$IMAGE_NAME:$IMAGE_TAG
 
       - name: Output Image URL
-        run: echo "Pushed to $ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG"
+        run: echo "Pushed image: ${{ secrets.ACR_LOGIN_SERVER }}/$IMAGE_NAME:$IMAGE_TAG"
 
       # -------------------------------
       # AKS Deployment
@@ -109,15 +114,17 @@ jobs:
 
       - name: Get AKS Credentials
         run: |
-          az aks get-credentials --resource-group $AKS_RESOURCE_GROUP --name $AKS_CLUSTER_NAME --overwrite-existing
+          az aks get-credentials \
+            --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} \
+            --name ${{ secrets.AKS_CLUSTER_NAME }} \
+            --overwrite-existing
 
-      - name: Verify Cluster Connection
+      - name: Verify AKS Cluster Connection
         run: kubectl get nodes
 
       - name: Update Deployment YAML with New Image
         run: |
-          sed -i "s|<your-image-name>:<your-image-tag>|$ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG|" k8s/deployment.yaml
+          sed -i "s|<your-image-name>:<your-image-tag>|${{ secrets.ACR_LOGIN_SERVER }}/$IMAGE_NAME:$IMAGE_TAG|" k8s/deployment.yaml
 
       - name: Apply Kubernetes Deployment
-        run: |
-          kubectl apply -f k8s/
+        run: kubectl apply -f k8s/
