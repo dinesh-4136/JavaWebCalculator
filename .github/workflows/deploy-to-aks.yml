@@ -101,8 +101,8 @@ jobs:
       - name: Push Docker Image to ACR
         run: docker push ${{ secrets.ACR_LOGIN_SERVER }}/$IMAGE_NAME:$IMAGE_TAG
 
-      - name: Output Image URL
-        run: echo Pushed image: ${{ secrets.ACR_LOGIN_SERVER }}/$IMAGE_NAME:$IMAGE_TAG
+      # - name: Output Image URL
+      #   run: echo "Pushed image: ${{ secrets.ACR_LOGIN_SERVER }}/$IMAGE_NAME:$IMAGE_TAG"
 
 
       # -------------------------------
