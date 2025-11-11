@@ -1,21 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: java-webapp
-  labels:
-    app: java-webapp
+  name: java-app
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
-      app: java-webapp
+      app: java-app
   template:
     metadata:
       labels:
-        app: java-webapp
+        app: java-app
     spec:
       containers:
-        - name: java-webapp
-          image: <your-image-name>:<your-image-tag>
-          ports:
-            - containerPort: 8080
+      - name: java-app
+        image: dineshacr.azurecr.io/java-app:latest
+        ports:
+        - containerPort: 8080
